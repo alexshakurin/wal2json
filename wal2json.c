@@ -53,6 +53,8 @@ typedef struct
 	 */
 	bool		include_lsn;		/* include LSNs */
 
+	bool		skip_result;		/* don't return any result - useful when plugin is used just to commit slot read */
+
 	uint64		nr_changes;			/* # of passes in pg_decode_change() */
 									/* FIXME replace with txn->nentries */
 
@@ -139,6 +141,7 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt, bool is
 	data->pretty_print = false;
 	data->write_in_chunks = false;
 	data->include_lsn = false;
+	data->skip_result = false;
 	data->include_not_null = false;
 	data->include_unchanged_toast = true;
 	data->filter_tables = NIL;
@@ -304,6 +307,19 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt, bool is
 						 errmsg("could not parse value \"%s\" for parameter \"%s\"",
 							 strVal(elem->arg), elem->defname)));
 		}
+		else if (strcmp(elem->defname, "skip-result") == 0)
+		{
+			if (elem->arg == NULL)
+			{
+				elog(LOG, "skip-result argument is null");
+				data->skip_result = false;
+			}
+			else if (!parse_bool(strVal(elem->arg), &data->skip_result))
+				ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+					errmsg("could not parse value \"%s\" for parameter \"%s\"",
+						strVal(elem->arg), elem->defname)));
+		}
 		else if (strcmp(elem->defname, "include-unchanged-toast") == 0)
 		{
 			if (elem->arg == NULL)
@@ -395,6 +411,9 @@ pg_decode_begin_txn(LogicalDecodingContext *ctx, ReorderBufferTXN *txn)
 {
 	JsonDecodingData *data = ctx->output_plugin_private;
 
+	if (data->skip_result)
+		return;
+
 	data->nr_changes = 0;
 
 	/* Transaction starts */
@@ -404,6 +423,9 @@ pg_decode_begin_txn(LogicalDecodingContext *ctx, ReorderBufferTXN *txn)
 
 	if (data->include_xids)
 		appendStringInfo(ctx->out, "%s\"xid\":%s%u,%s", data->ht, data->sp, txn->xid, data->nl);
+	
+	if (txn->origin_id)
+		appendStringInfo(ctx->out, "%s\"originid\":%s%u,%s", data->ht, data->sp, txn->origin_id, data->nl);
 
 	if (data->include_lsn)
 	{
@@ -429,6 +451,9 @@ pg_decode_commit_txn(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
 					 XLogRecPtr commit_lsn)
 {
 	JsonDecodingData *data = ctx->output_plugin_private;
+
+	if (data->skip_result)
+		return;
 
 	if (txn->has_catalog_changes)
 		elog(DEBUG1, "txn has catalog changes: yes");
@@ -767,6 +792,10 @@ pg_decode_change(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
 	AssertVariableIsOfType(&pg_decode_change, LogicalDecodeChangeCB);
 
 	data = ctx->output_plugin_private;
+
+	if (data->skip_result)
+		return;
+
 	class_form = RelationGetForm(relation);
 	tupdesc = RelationGetDescr(relation);
 
