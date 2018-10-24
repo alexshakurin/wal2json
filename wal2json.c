@@ -39,7 +39,6 @@ typedef struct
 	bool		include_type_oids;	/* include data type oids */
 	bool		include_typmod;		/* include typmod in types */
 	bool		include_not_null;	/* include not-null constraints */
-	bool		include_unchanged_toast;	/* include unchanged TOAST field values in output */
 
 	bool		pretty_print;		/* pretty-print JSON? */
 	bool		write_in_chunks;	/* write in chunks? */
@@ -143,7 +142,6 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt, bool is
 	data->include_lsn = false;
 	data->skip_result = false;
 	data->include_not_null = false;
-	data->include_unchanged_toast = true;
 	data->filter_tables = NIL;
 
 	/* pretty print */
@@ -174,7 +172,7 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt, bool is
 			/* If option does not provide a value, it means its value is true */
 			if (elem->arg == NULL)
 			{
-				elog(LOG, "include-xids argument is null");
+				elog(DEBUG1, "include-xids argument is null");
 				data->include_xids = true;
 			}
 			else if (!parse_bool(strVal(elem->arg), &data->include_xids))
@@ -187,7 +185,7 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt, bool is
 		{
 			if (elem->arg == NULL)
 			{
-				elog(LOG, "include-timestamp argument is null");
+				elog(DEBUG1, "include-timestamp argument is null");
 				data->include_timestamp = true;
 			}
 			else if (!parse_bool(strVal(elem->arg), &data->include_timestamp))
@@ -200,7 +198,7 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt, bool is
 		{
 			if (elem->arg == NULL)
 			{
-				elog(LOG, "include-schemas argument is null");
+				elog(DEBUG1, "include-schemas argument is null");
 				data->include_schemas = true;
 			}
 			else if (!parse_bool(strVal(elem->arg), &data->include_schemas))
@@ -213,7 +211,7 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt, bool is
 		{
 			if (elem->arg == NULL)
 			{
-				elog(LOG, "include-types argument is null");
+				elog(DEBUG1, "include-types argument is null");
 				data->include_types = true;
 			}
 			else if (!parse_bool(strVal(elem->arg), &data->include_types))
@@ -226,7 +224,7 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt, bool is
 		{
 			if (elem->arg == NULL)
 			{
-				elog(LOG, "include-type-oids argument is null");
+				elog(DEBUG1, "include-type-oids argument is null");
 				data->include_type_oids = true;
 			}
 			else if (!parse_bool(strVal(elem->arg), &data->include_type_oids))
@@ -239,7 +237,7 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt, bool is
 		{
 			if (elem->arg == NULL)
 			{
-				elog(LOG, "include-typmod argument is null");
+				elog(DEBUG1, "include-typmod argument is null");
 				data->include_typmod = true;
 			}
 			else if (!parse_bool(strVal(elem->arg), &data->include_typmod))
@@ -252,7 +250,7 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt, bool is
 		{
 			if (elem->arg == NULL)
 			{
-				elog(LOG, "include-not-null argument is null");
+				elog(DEBUG1, "include-not-null argument is null");
 				data->include_not_null = true;
 			}
 			else if (!parse_bool(strVal(elem->arg), &data->include_not_null))
@@ -265,7 +263,7 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt, bool is
 		{
 			if (elem->arg == NULL)
 			{
-				elog(LOG, "pretty-print argument is null");
+				elog(DEBUG1, "pretty-print argument is null");
 				data->pretty_print = true;
 			}
 			else if (!parse_bool(strVal(elem->arg), &data->pretty_print))
@@ -285,7 +283,7 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt, bool is
 		{
 			if (elem->arg == NULL)
 			{
-				elog(LOG, "write-in-chunks argument is null");
+				elog(DEBUG1, "write-in-chunks argument is null");
 				data->write_in_chunks = true;
 			}
 			else if (!parse_bool(strVal(elem->arg), &data->write_in_chunks))
@@ -298,7 +296,7 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt, bool is
 		{
 			if (elem->arg == NULL)
 			{
-				elog(LOG, "include-lsn argument is null");
+				elog(DEBUG1, "include-lsn argument is null");
 				data->include_lsn = true;
 			}
 			else if (!parse_bool(strVal(elem->arg), &data->include_lsn))
@@ -322,16 +320,9 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt, bool is
 		}
 		else if (strcmp(elem->defname, "include-unchanged-toast") == 0)
 		{
-			if (elem->arg == NULL)
-			{
-				elog(LOG, "include-unchanged-toast is null");
-				data->include_unchanged_toast = true;
-			}
-			else if (!parse_bool(strVal(elem->arg), &data->include_unchanged_toast))
-				ereport(ERROR,
-						(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-						 errmsg("could not parse value \"%s\" for parameter \"%s\"",
-							 strVal(elem->arg), elem->defname)));
+			ereport(ERROR,
+					(errcode(ERRCODE_INVALID_NAME),
+					 errmsg("parameter \"%s\" was deprecated", elem->defname)));
 		}
 		else if (strcmp(elem->defname, "filter-tables") == 0)
 		{
@@ -339,7 +330,7 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt, bool is
 
 			if (elem->arg == NULL)
 			{
-				elog(LOG, "filter-tables argument is null");
+				elog(DEBUG1, "filter-tables argument is null");
 				data->filter_tables = NIL;
 			}
 
@@ -367,7 +358,7 @@ pg_decode_startup(LogicalDecodingContext *ctx, OutputPluginOptions *opt, bool is
 
 			if (elem->arg == NULL)
 			{
-				elog(LOG, "add-tables argument is null");
+				elog(DEBUG1, "add-tables argument is null");
 				data->add_tables = NIL;
 			}
 			else
@@ -456,11 +447,11 @@ pg_decode_commit_txn(LogicalDecodingContext *ctx, ReorderBufferTXN *txn,
 		return;
 
 	if (txn->has_catalog_changes)
-		elog(DEBUG1, "txn has catalog changes: yes");
+		elog(DEBUG2, "txn has catalog changes: yes");
 	else
-		elog(DEBUG1, "txn has catalog changes: no");
-	elog(DEBUG1, "my change counter: %lu ; # of changes: %lu ; # of changes in memory: %lu", data->nr_changes, txn->nentries, txn->nentries_mem);
-	elog(DEBUG1, "# of subxacts: %d", txn->nsubtxns);
+		elog(DEBUG2, "txn has catalog changes: no");
+	elog(DEBUG2, "my change counter: %lu ; # of changes: %lu ; # of changes in memory: %lu", data->nr_changes, txn->nentries, txn->nentries_mem);
+	elog(DEBUG2, "# of subxacts: %d", txn->nsubtxns);
 
 	/* Transaction ends */
 	if (data->write_in_chunks)
@@ -604,10 +595,10 @@ tuple_to_stringinfo(LogicalDecodingContext *ctx, TupleDesc tupdesc, HeapTuple tu
 		if (isnull && replident)
 			continue;
 
-		if (!isnull && typisvarlena && VARATT_IS_EXTERNAL_ONDISK(origval) && !data->include_unchanged_toast)
+		/* XXX Unchanged TOAST Datum does not need to be output */
+		if (!isnull && typisvarlena && VARATT_IS_EXTERNAL_ONDISK(origval))
 		{
-			/* TOAST value is not returned if include-unchanged-toast is specified */
-			elog(DEBUG2, "column \"%s\" has an unchanged TOAST - excluding", NameStr(attr->attname));
+			elog(DEBUG1, "column \"%s\" has an unchanged TOAST", NameStr(attr->attname));
 			continue;
 		}
 
