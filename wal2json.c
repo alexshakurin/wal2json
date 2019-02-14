@@ -578,6 +578,13 @@ tuple_to_stringinfo(LogicalDecodingContext *ctx, TupleDesc tupdesc, HeapTuple tu
 				continue;
 		}
 
+		/* Get Datum from tuple */
+		origval = heap_getattr(tuple, natt + 1, tupdesc, &isnull);
+
+		/* Skip nulls iif printing key/identity */
+		if (isnull && replident)
+			continue;
+			
 		typid = attr->atttypid;
 
 		/* Figure out type name */
@@ -587,13 +594,6 @@ tuple_to_stringinfo(LogicalDecodingContext *ctx, TupleDesc tupdesc, HeapTuple tu
 
 		/* Get information needed for printing values of a type */
 		getTypeOutputInfo(typid, &typoutput, &typisvarlena);
-
-		/* Get Datum from tuple */
-		origval = heap_getattr(tuple, natt + 1, tupdesc, &isnull);
-
-		/* Skip nulls iif printing key/identity */
-		if (isnull && replident)
-			continue;
 
 		/* XXX Unchanged TOAST Datum does not need to be output */
 		if (!isnull && typisvarlena && VARATT_IS_EXTERNAL_ONDISK(origval))
